@@ -1,4 +1,6 @@
-require("@nomicfoundation/hardhat-toolbox");
+require("@nomiclabs/hardhat-waffle");
+require("@nomiclabs/hardhat-etherscan");
+require("hardhat-gas-reporter");
 require("dotenv").config();
 
 const { PRIVATE_KEY_TESTNET, ALCHEMY_KEY, ETHERSCAN_API_KEY, PRIVATE_KEY_MAINNET } = process.env;
@@ -15,7 +17,7 @@ module.exports = {
     },
   },
   solidity: {
-    version: "0.8.10",
+    version: "0.8.12",
     settings: {
       optimizer: {
         enabled: true,
