@@ -46,7 +46,7 @@ contract Staking is Ownable {
             block.timestamp + (numDays * 1 days),
             tiers[numDays],
             msg.value,
-            calculateInterest(tiers[numDays], numDays, msg.value),
+            calculateInterest(tiers[numDays], msg.value),
             true
         );
 
@@ -54,8 +54,8 @@ contract Staking is Ownable {
         currentPositionId += 1;
     }
 
-    function calculateInterest(uint basisPoints, uint numDays, uint weiAmount) private pure returns (uint) {
-        return (basisPoints * numDays * weiAmount) / 10000;
+    function calculateInterest(uint basisPoints, uint weiAmount) private pure returns (uint) {
+        return (basisPoints * weiAmount) / 10000;
     }
 
     function modifyLockPeriods(uint numDays, uint basisPoints) external onlyOwner {
