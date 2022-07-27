@@ -272,5 +272,30 @@ describe('Staking', function () {
                 )
             })
         })
+
+        describe('negative', function () {
+            it('should revert in case caller in not position creator', async () => {
+                const provider = waffle.provider
+                const transferAmount = ethers.utils.parseEther('5.0')
+
+                const data = { value: transferAmount }
+                await staking.connect(signer2).stakeEther(90, data)
+
+                await expect(staking.connect(owner).closePosition(1))
+                    .to.be.revertedWith('Only position creator may modify position')
+            })
+
+            it('should revert in case position is already closed', async () => {
+                const provider = waffle.provider
+                const transferAmount = ethers.utils.parseEther('5.0')
+
+                const data = { value: transferAmount }
+                await staking.connect(signer2).stakeEther(90, data)
+
+                await staking.connect(signer2).closePosition(1)
+                await expect(staking.connect(signer2).closePosition(1))
+                    .to.be.revertedWith('Position is closed')
+            })
+        })
     })
 })
