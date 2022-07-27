@@ -12,11 +12,11 @@ describe('Staking', function () {
     })
 
     describe('deploy', function () {
-        it('should set owner', async function() {
+        it('should set owner', async () => {
             expect(await staking.owner()).to.be.equal(owner.address)
         })
 
-        it('sets up tiers and lockPeriods', async function() {
+        it('sets up tiers and lockPeriods', async () => {
             expect(await staking.lockPeriods(0)).to.equal(30)
             expect(await staking.lockPeriods(1)).to.equal(90)
             expect(await staking.lockPeriods(2)).to.equal(180)
@@ -28,7 +28,7 @@ describe('Staking', function () {
     })
 
     describe('stakeEther', function () {
-        it('transfers ether', async function() {
+        it('transfers ether', async () => {
             const provider = waffle.provider
             let contractBalance
             let signerBalance
@@ -51,7 +51,7 @@ describe('Staking', function () {
                 .to.equal(contractBalance.add(transferAmount))
         })
 
-        it('adds a position to positions', async function() {
+        it('adds a position to positions', async () => {
             const provider = waffle.provider
             let position
             const transferAmount = ethers.utils.parseEther('1.0')
@@ -88,20 +88,189 @@ describe('Staking', function () {
             expect(await staking.currentPositionId()).to.equal(2)
         })
 
-        it('adds address and positionId to positionIdsByAddress', async function() {
+        it('adds address and positionId to positionIdsByAddress', async () => {
             const transferAmount = ethers.utils.parseEther('0.5')
 
             const data = { value: transferAmount }
             await staking.connect(signer1).stakeEther(30, data)
             await staking.connect(signer1).stakeEther(30, data)
             await staking.connect(signer2).stakeEther(90, data)
-
-            console.log((await staking.positionIdsByAddress(signer1.address, 1)).toString())
             
-            expect(await staking.positionIdsByAddress(signer1.address, 1)).to.equal(1)
-            expect(await staking.positionIdsByAddress(signer1.address, 2)).to.equal(2)
-            expect(await staking.positionIdsByAddress(signer2.address, 1)).to.equal(3)
+            expect(await staking.positionIdsByAddress(signer1.address, 0)).to.equal(1)
+            expect(await staking.positionIdsByAddress(signer1.address, 1)).to.equal(2)
+            expect(await staking.positionIdsByAddress(signer2.address, 0)).to.equal(3)
         })
     })
 
+    describe('modifyLockPeriods', function () {
+        describe('owner', function () {
+            it('should create a new lock period', async () => {
+                await staking.connect(owner).modifyLockPeriods(100, 999)
+
+                expect(await staking.tiers(100)).to.equal(999)
+                expect(await staking.lockPeriods(3)).to.equal(100)
+            })
+
+            it('should modify an existing lock period', async () => {
+                expect(await staking.tiers(180)).to.equal(12000)
+
+                await staking.connect(owner).modifyLockPeriods(180, 15000)
+
+                expect(await staking.tiers(180)).to.equal(15000)
+            })
+        })
+
+        describe('non-owner', function () {
+            it('reverts', async () => {
+                expect(staking.connect(signer1).modifyLockPeriods(100, 999))
+                    .to.be.revertedWith('Ownable: caller is not the owner')
+            })
+        })
+    })
+
+    describe('getLockPeriods', function () {
+        it('returns all lock periods', async () => {
+            const lockPeriods = await staking.getLockPeriods()
+
+            expect(lockPeriods.map(v => Number(v._hex)))
+                .to.eql([30,90,180])
+        })
+    })
+
+    describe('getInterestRate', function () {
+        it('returns the interest rate for a specific lockPeriod', async () => {
+            const interestRate = await staking.getInterestRate(30)
+            expect(interestRate).to.equal(700)
+        })
+    })
+
+    describe('getPositionById', function () {
+        it('returns data about a specific position, given a positionId', async () => {
+            const provider = waffle.provider
+
+            const transferAmount = ethers.utils.parseEther('5')
+            const data = { value: transferAmount }
+            const transaction = await staking.connect(signer1).stakeEther(90, data)
+            const receipt = transaction.wait()
+            const block = await provider.getBlock(receipt.blockNumber)
+
+            const position = await staking.connect(signer2).getPositionById(1)
+
+            expect(position.positionId).to.equal(1)
+            expect(position.walletAddress).to.equal(signer1.address)
+            expect(position.createdDate).to.equal(block.timestamp)
+            expect(position.unlockDate).to.equal(block.timestamp + (86400 * 90))
+            expect(position.percentInterest).to.equal(1000)
+            expect(position.weiStaked).to.equal(transferAmount)
+            expect(position.weiInterest).to.equal( ethers.BigNumber.from(transferAmount).mul(1000).div(10000) )
+            expect(position.open).to.equal(true)
+        })
+    })
+
+    describe('getPositionIdsForAddress', function () {
+        it('returns a list of positionIds created by a specific address', async () => {
+            let data
+            let transaction
+
+            data = { value: ethers.utils.parseEther('5') }
+            transaction = await staking.connect(signer1).stakeEther(90, data)
+
+            data = { value: ethers.utils.parseEther('10') }
+            transaction = await staking.connect(signer1).stakeEther(90, data)
+
+            const positionIds = await staking.getPositionIdsForAddress(signer1.address)
+
+            expect(positionIds.map(p => Number(p))).to.eql([1, 2])
+        })
+    })
+
+    describe('changeUnlockDate', function () {
+        describe('owner', function () {
+            it('changes the unlockDate', async () => {
+                const data = { value: ethers.utils.parseEther('8') }
+                const transaction = await staking.connect(signer1).stakeEther(90, data)
+                const positionOld = await staking.getPositionById(1)
+
+                const newUnlockDate = positionOld.unlockDate - (86400 * 500)
+                await staking.connect(owner).changeUnlockDate(1, newUnlockDate)
+                const positionNew = await staking.getPositionById(1)
+
+                expect(positionNew.unlockDate).to.be.equal(positionOld.unlockDate - (86400 * 500))
+            })
+        })
+
+        describe('non-owner', function () {
+            it('revert', async () => {
+                const data = { value: ethers.utils.parseEther('8') }
+                const transaction = await staking.connect(signer1).stakeEther(90, data)
+                const positionOld = await staking.getPositionById(1)
+
+                const newUnlockDate = positionOld.unlockDate - (86400 * 500)
+                expect(staking.connect(signer1).changeUnlockDate(1, newUnlockDate))
+                    .to.be.revertedWith('Ownable: caller is not the owner')
+            })
+        })
+    })
+
+    describe('closePosition', function () {
+        describe('after unlock date', function () {
+            it('transfers principal and interes', async () => {
+                const provider = waffle.provider
+                const transferAmount = ethers.utils.parseEther('8.0')
+
+                const data = { value: transferAmount }
+                let transaction = await staking.connect(signer2).stakeEther(90, data)
+                let receipt = transaction.wait()
+                let block = await provider.getBlock(receipt.blockNumber)
+
+                const newUnlockDate = block.timestamp - (86400 * 100)
+                await staking.connect(owner).changeUnlockDate(1, newUnlockDate)
+
+                const position = await staking.getPositionById(1)
+
+                const signerBalanceBefore = await signer2.getBalance()
+
+                transaction = await staking.connect(signer2).closePosition(1)
+                receipt = await transaction.wait()
+
+                const gasUsed = receipt.gasUsed.mul(receipt.effectiveGasPrice)
+                const signerBalanceAfter = await signer2.getBalance()
+
+                expect(signerBalanceAfter).to.equal(
+                    signerBalanceBefore
+                        .sub(gasUsed)
+                        .add(position.weiStaked)
+                        .add(position.weiInterest)
+                )
+            })
+        })
+
+        describe('before unlock date', function () {
+            it('transfers only principal', async () => {
+                const provider = waffle.provider
+                const transferAmount = ethers.utils.parseEther('5.0')
+
+                const data = { value: transferAmount }
+                let transaction = await staking.connect(signer2).stakeEther(90, data)
+                let receipt = transaction.wait()
+                let block = await provider.getBlock(receipt.blockNumber)
+
+                const position = await staking.getPositionById(1)
+
+                const signerBalanceBefore = await signer2.getBalance()
+
+                transaction = await staking.connect(signer2).closePosition(1)
+                receipt = await transaction.wait()
+
+                const gasUsed = receipt.gasUsed.mul(receipt.effectiveGasPrice)
+                const signerBalanceAfter = await signer2.getBalance()
+
+                expect(signerBalanceAfter).to.equal(
+                    signerBalanceBefore
+                        .sub(gasUsed)
+                        .add(position.weiStaked)
+                )
+            })
+        })
+    })
 })
