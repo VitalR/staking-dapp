@@ -1,13 +1,35 @@
-# Sample Hardhat Project
+## SetUp Project
 
-This project demonstrates a basic Hardhat use case. It comes with a sample contract, a test for that contract, and a script that deploys that contract.
+- Clone the project:
+```
+git clone repo_link
+```
+- Install the dependencies:
+```
+npm i
+```
+- Run the tests:
+```
+npm test
+```
+- Compile the contracts:
+```
+npm run compile
+```
 
-Try running some of the following tasks:
-
-```shell
-npx hardhat help
-npx hardhat test
-GAS_REPORT=true npx hardhat test
+- Run on local node:
+```
 npx hardhat node
-npx hardhat run scripts/deploy.js
+npx hardhat run --network localhost scripts/deploy.js
+```
+- Connect MetaMask to the local node
+
+- Update client__App.js:
+```
+const CONTRACT_ADDRESS = <DEPLOYED_SC_ADDRESS>
+```
+
+- Run client:
+```
+npm start
 ```
