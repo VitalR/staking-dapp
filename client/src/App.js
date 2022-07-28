@@ -3,6 +3,8 @@ import react, { useEffect, useState } from 'react'
 import  { ethers } from 'ethers'
 import artifacts from './artifacts/contracts/Staking.sol/Staking.json'
 
+import NavBar from './components/NavBar'
+
 const CONTRACT_ADDRESS = '0x0165878A594ca255338adfa4d48449f69242Eb8F'
 
 function App() {
@@ -107,7 +109,12 @@ function App() {
 
   return (
     <div className="App">
-      
+      <div>
+        <NavBar 
+          isConnected={isConnected}
+          connect={connectAndLoad}
+        />
+      </div>
     </div>
   );
 }
