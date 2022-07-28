@@ -26,7 +26,7 @@ module.exports = {
     }
   },
   paths: {
-    artifacts: ".client/src/artifacts"
+    artifacts: "client/src/artifacts"
   },
   gasPrice: "10000000000",
   gas: "auto",
